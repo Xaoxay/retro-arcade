@@ -1,0 +1,34 @@
+{
+  "name": "retro-arcade-3in1",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Colección de juegos Retro Arcade: Tetris, Pac-Man y La Viborita con controles móviles y teclado",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/games.test.mjs",
+    "sync": "npm run build && npx cap sync",
+    "android": "npm run sync && npx cap open android",
+    "ios": "npm run sync && npx cap open ios",
+    "start": "npx serve ."
+  },
+  "keywords": [
+    "tetris",
+    "pacman",
+    "snake",
+    "arcade",
+    "retro",
+    "mobile-ready"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.5.3",
+    "vite": "^8.3.4"
+  }
+}

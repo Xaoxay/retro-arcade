@@ -1,0 +1,12 @@
+{
+  "appId": "com.xaoxay.retroarcade",
+  "appName": "Retro Arcade",
+  "webDir": "dist",
+  "backgroundColor": "#060713",
+  "android": {
+    "allowMixedContent": true
+  },
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

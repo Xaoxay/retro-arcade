@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Retro Arcade 3-en-1 | Tetris, Pac-Man, Viborita</title>
+  <!-- Google Fonts & Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --neon-cyan: #00f3ff;
+      --neon-magenta: #ff007f;
+      --neon-yellow: #ffe600;
+      --neon-green: #00ff66;
+      --neon-orange: #ff6600;
+      --neon-blue: #0066ff;
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+      --sal: env(safe-area-inset-left, 0px);
+      --sar: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      min-height: 100dvh;
+      max-height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: auto;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: #060713;
+      color: #e2e8f0;
+      touch-action: manipulation;
+      padding-top: var(--sat);
+      padding-bottom: var(--sab);
+      padding-left: var(--sal);
+      padding-right: var(--sar);
+    }
+
+    .font-arcade {
+      font-family: 'Press Start 2P', monospace;
+    }
+
+    /* Glows y sombras retro */
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.4), inset 0 0 15px rgba(0, 243, 255, 0.2);
+    }
+    .glow-magenta {
+      box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.2);
+    }
+    .glow-yellow {
+      box-shadow: 0 0 15px rgba(255, 230, 0, 0.4), inset 0 0 15px rgba(255, 230, 0, 0.2);
+    }
+    .glow-green {
+      box-shadow: 0 0 15px rgba(0, 255, 102, 0.4), inset 0 0 15px rgba(0, 255, 102, 0.2);
+    }
+    .text-glow-cyan {
+      text-shadow: 0 0 8px #00f3ff, 0 0 16px rgba(0, 243, 255, 0.6);
+    }
+    .text-glow-yellow {
+      text-shadow: 0 0 8px #ffe600, 0 0 16px rgba(255, 230, 0, 0.6);
+    }
+    .text-glow-magenta {
+      text-shadow: 0 0 8px #ff007f, 0 0 16px rgba(255, 0, 127, 0.6);
+    }
+    .text-glow-green {
+      text-shadow: 0 0 8px #00ff66, 0 0 16px rgba(0, 255, 102, 0.6);
+    }
+
+    /* Efecto CRT Scanlines */
+    .crt-overlay::before {
+      content: " ";
+      display: block;
+      position: fixed;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      z-index: 999;
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+      opacity: 0.85;
+    }
+    .crt-curve {
+      box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.85);
+    }
+
+    /* Animación de titileo retro */
+    @keyframes retro-blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    .animate-blink {
+      animation: retro-blink 1s infinite;
+    }
+
+    /* Botones táctiles virtuales */
+    .v-btn {
+      touch-action: none;
+      transition: all 0.08s ease;
+      active: scale(0.92);
+    }
+    .v-btn:active {
+      transform: scale(0.90);
+      filter: brightness(1.3);
+    }
+
+    /* D-pad circular */
+    .dpad-center {
+      background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+    }
+
+    /* Barra de scroll discreta */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080914;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#060713] text-gray-100 flex flex-col justify-between select-none">
+
+  <!-- CAPA CRT OPCIONAL -->
+  <div id="crtOverlay" class="crt-overlay hidden"></div>
+
+  <!-- CABECERA SUPERIOR PERMANENTE -->
+  <header class="w-full bg-[#0d0f22]/90 backdrop-blur-md border-b border-indigo-950/60 sticky top-0 z-50 px-4 py-2.5 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <button id="btnBackToMenu" class="hidden p-2 rounded-lg bg-indigo-900/50 hover:bg-indigo-800 text-cyan-400 border border-cyan-500/30 transition-all flex items-center gap-1.5 text-xs font-semibold">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+        <span>MENÚ</span>
+      </button>
+      <div class="flex items-center gap-2">
+        <span class="text-xl">🕹️</span>
+        <h1 id="appHeaderTitle" class="font-arcade text-xs md:text-sm tracking-wider text-cyan-400 text-glow-cyan">ARCADE 3-IN-1</h1>
+      </div>
+    </div>
+
+    <!-- Ajustes Rápidos: Sonido, CRT, Fullscreen -->
+    <div class="flex items-center gap-2">
+      <!-- Highscore badge en header (cuando se juega) -->
+      <div id="headerScoreBox" class="hidden font-arcade text-[10px] bg-black/60 px-2.5 py-1 rounded border border-indigo-700/50 text-yellow-300">
+        <span class="text-gray-400">PTS:</span> <span id="headerScoreVal">0</span>
+      </div>
+
+      <!-- Toggle Sonido -->
+      <button id="btnToggleSound" title="Silenciar / Activar Sonido" class="p-2 rounded-lg bg-indigo-950/70 border border-indigo-800/60 hover:border-cyan-400 text-cyan-300 transition-all">
+        <svg id="iconSoundOn" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+        <svg id="iconSoundOff" class="w-4 h-4 hidden text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+      </button>
+
+      <!-- Toggle CRT Scanlines -->
+      <button id="btnToggleCrt" title="Efecto CRT Retro" class="px-2 py-1 text-[10px] font-arcade rounded-lg bg-indigo-950/70 border border-indigo-800/60 hover:border-purple-400 text-purple-300 transition-all">
+        CRT
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL DINÁMICO -->
+  <main class="flex-1 w-full max-w-5xl mx-auto p-3 sm:p-5 flex flex-col items-center justify-center">
+
+    <!-- ========================================== -->
+    <!-- PANTALLA 1: HUB / SELECTOR DE JUEGOS       -->
+    <!-- ========================================== -->
+    <section id="viewMenu" class="w-full max-w-4xl flex flex-col items-center py-4">
+      
+      <!-- HERO BANNER -->
+      <div class="text-center mb-8">
+        <div class="inline-block px-3 py-1 mb-3 rounded-full bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-semibold tracking-wider">
+          ★ COLECCIÓN RETRO ARCADE DEFINITIVA ★
+        </div>
+        <h2 class="font-arcade text-2xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-yellow-300 to-pink-500 mb-2">
+          ARCADE ZONE
+        </h2>
+        <p class="text-gray-400 text-xs sm:text-sm max-w-md mx-auto">
+          Elige tu juego clásico favorito con controles táctiles para móvil o teclado para PC. Sonido sintetizado chiptune 100% retro.
+        </p>
+      </div>
+
+      <!-- TARJETAS DE LOS 3 JUEGOS -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 w-full">
+        
+        <!-- TARJETA 1: TETRIS -->
+        <div class="group relative rounded-2xl bg-gradient-to-b from-[#131533] to-[#0c0e22] border border-cyan-500/30 p-5 flex flex-col justify-between hover:border-cyan-400 transition-all duration-300 hover:shadow-[0_0_25px_rgba(0,243,255,0.25)]">
+          <div class="absolute -top-3 right-4 px-2 py-0.5 rounded bg-cyan-500 text-black font-arcade text-[9px] font-bold">
+            PRO
+          </div>
+          <div>
+            <div class="w-full h-32 rounded-xl bg-[#090b1c] border border-cyan-900/60 flex items-center justify-center relative overflow-hidden mb-4">
+              <!-- Pixel Art Mini Preview Tetris -->
+              <div class="grid grid-cols-4 gap-1 p-2">
+                <div class="w-5 h-5 rounded-sm bg-cyan-400 glow-cyan"></div>
+                <div class="w-5 h-5 rounded-sm bg-cyan-400 glow-cyan"></div>
+                <div class="w-5 h-5 rounded-sm bg-cyan-400 glow-cyan"></div>
+                <div class="w-5 h-5 rounded-sm bg-cyan-400 glow-cyan"></div>
+                <div class="w-5 h-5 rounded-sm bg-purple-500 shadow-sm"></div>
+                <div class="w-5 h-5 rounded-sm bg-yellow-400 shadow-sm"></div>
+                <div class="w-5 h-5 rounded-sm bg-yellow-400 shadow-sm"></div>
+                <div class="w-5 h-5 rounded-sm bg-orange-500 shadow-sm"></div>
+              </div>
+              <div class="absolute inset-0 bg-gradient-to-t from-[#090b1c] via-transparent to-transparent"></div>
+            </div>
+
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-arcade text-sm text-cyan-300">TETRIS</h3>
+              <span class="text-xs text-yellow-400 font-arcade">🏆 <span id="menuTetrisHi">0</span></span>
+            </div>
+            <p class="text-gray-400 text-xs leading-relaxed mb-4">
+              Encaja los tetrominós que caen. Incluye Ghost Piece, Guardado (Hold), aumento de velocidad por nivel y caída dura instantánea.
+            </p>
+          </div>
+
+          <button onclick="launchGame('tetris')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-cyan-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span>JUGAR TETRIS</span>
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+
+        <!-- TARJETA 2: PAC-MAN -->
+        <div class="group relative rounded-2xl bg-gradient-to-b from-[#131533] to-[#0c0e22] border border-yellow-500/30 p-5 flex flex-col justify-between hover:border-yellow-400 transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,230,0,0.25)]">
+          <div class="absolute -top-3 right-4 px-2 py-0.5 rounded bg-yellow-400 text-black font-arcade text-[9px] font-bold">
+            CLASSIC
+          </div>
+          <div>
+            <div class="w-full h-32 rounded-xl bg-[#090b1c] border border-yellow-900/60 flex items-center justify-center relative overflow-hidden mb-4">
+              <!-- Pixel Art Mini Preview Pacman -->
+              <div class="flex items-center gap-3">
+                <!-- Pacman SVG -->
+                <svg class="w-10 h-10 text-yellow-400 animate-pulse" viewBox="0 0 100 100" fill="currentColor">
+                  <path d="M50 0 A50 50 0 1 0 100 50 L50 50 Z" />
+                </svg>
+                <div class="flex gap-2 items-center">
+                  <div class="w-2.5 h-2.5 rounded-full bg-yellow-200"></div>
+                  <div class="w-2.5 h-2.5 rounded-full bg-yellow-200"></div>
+                  <div class="w-4 h-4 rounded-full bg-white glow-yellow animate-ping"></div>
+                </div>
+                <!-- Ghost SVG -->
+                <svg class="w-9 h-9 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2a8 8 0 0 0-8 8v11l3-2 3 2 2-2 2 2 3-2 3 2V10a8 8 0 0 0-8-8zm-3 8a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm6 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                </svg>
+              </div>
+              <div class="absolute inset-0 bg-gradient-to-t from-[#090b1c] via-transparent to-transparent"></div>
+            </div>
+
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-arcade text-sm text-yellow-300">PAC-MAN</h3>
+              <span class="text-xs text-yellow-400 font-arcade">🏆 <span id="menuPacmanHi">0</span></span>
+            </div>
+            <p class="text-gray-400 text-xs leading-relaxed mb-4">
+              Recorre el laberinto, devora todas las píldoras, toma las bolas de poder para cazar a los 4 fantasmas y acumula puntos.
+            </p>
+          </div>
+
+          <button onclick="launchGame('pacman')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-yellow-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span>JUGAR PAC-MAN</span>
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+
+        <!-- TARJETA 3: LA VIBORITA (SNAKE) -->
+        <div class="group relative rounded-2xl bg-gradient-to-b from-[#131533] to-[#0c0e22] border border-green-500/30 p-5 flex flex-col justify-between hover:border-green-400 transition-all duration-300 hover:shadow-[0_0_25px_rgba(0,255,102,0.25)]">
+          <div class="absolute -top-3 right-4 px-2 py-0.5 rounded bg-green-500 text-black font-arcade text-[9px] font-bold">
+            NEON
+          </div>
+          <div>
+            <div class="w-full h-32 rounded-xl bg-[#090b1c] border border-green-900/60 flex items-center justify-center relative overflow-hidden mb-4">
+              <!-- Pixel Art Mini Preview Snake -->
+              <div class="flex items-center gap-1.5">
+                <div class="w-5 h-5 rounded-md bg-green-400 glow-green flex items-center justify-center">
+                  <div class="w-1.5 h-1.5 bg-black rounded-full"></div>
+                </div>
+                <div class="w-4 h-4 rounded-sm bg-green-500"></div>
+                <div class="w-4 h-4 rounded-sm bg-green-600"></div>
+                <div class="w-4 h-4 rounded-sm bg-green-700"></div>
+                <div class="w-6 h-6 ml-4 flex items-center justify-center text-red-400 animate-bounce">
+                  🍎
+                </div>
+              </div>
+              <div class="absolute inset-0 bg-gradient-to-t from-[#090b1c] via-transparent to-transparent"></div>
+            </div>
+
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-arcade text-sm text-green-300">LA VIBORITA</h3>
+              <span class="text-xs text-yellow-400 font-arcade">🏆 <span id="menuSnakeHi">0</span></span>
+            </div>
+            <p class="text-gray-400 text-xs leading-relaxed mb-4">
+              El mítico Snake con estética neón. Come manzanas rojas y frutas doradas especiales con tiempo limitado para crecer sin chocar.
+            </p>
+          </div>
+
+          <button onclick="launchGame('snake')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-green-400 to-emerald-600 hover:from-green-300 hover:to-emerald-500 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-green-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span>JUGAR VIBORITA</span>
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- GUÍA DE CONTROLES RÁPIDA -->
+      <div class="mt-8 w-full max-w-xl p-4 rounded-xl bg-[#0d0f22]/80 border border-indigo-900/40 text-center text-xs text-gray-400">
+        <span class="font-bold text-gray-300">💡 Controles:</span> En móvil usa los <span class="text-cyan-400 font-semibold">botones virtuales en pantalla</span> o desliza tu dedo. En ordenador puedes usar las <span class="text-yellow-400 font-semibold">Flechas del teclado / WASD</span>, Espacio y tecla C.
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- PANTALLA 2: CONTENEDOR DE JUEGO ACTIVO     -->
+    <!-- ========================================== -->
+    <section id="viewGame" class="hidden w-full flex flex-col items-center">
+      
+      <!-- SUB-BARRA DE ESTADO DEL JUEGO -->
+      <div class="w-full max-w-md flex items-center justify-between px-2 mb-2 font-arcade text-[10px]">
+        <div class="flex items-center gap-2">
+          <span id="gameCurrentTitle" class="text-cyan-300">TETRIS</span>
+          <span id="gameExtraInfo" class="text-purple-300">LVL 1</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="text-gray-400">PUNTOS: <span id="gameScoreVal" class="text-white">0</span></div>
+          <div class="text-yellow-400">RÉCORD: <span id="gameHiScoreVal">0</span></div>
+        </div>
+      </div>
+
+      <!-- MARCO ARCADE / GABINETE DE PANTALLA -->
+      <div class="relative w-full max-w-md rounded-2xl p-2 bg-[#0d1026] border-2 border-indigo-700/60 shadow-2xl flex flex-col items-center crt-curve overflow-hidden">
+        
+        <!-- Lienzo Principal del Juego -->
+        <div class="relative flex items-center justify-center bg-[#04050d] rounded-xl overflow-hidden border border-indigo-950">
+          <canvas id="gameCanvas" class="block w-full max-w-[360px] h-auto object-contain"></canvas>
+
+          <!-- OVERLAY DE PAUSA / GAME OVER / MENSAJES -->
+          <div id="gameOverlay" class="hidden absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20">
+            <h3 id="overlayTitle" class="font-arcade text-lg sm:text-xl text-yellow-400 mb-2">¡GAME OVER!</h3>
+            <p id="overlaySubtitle" class="text-xs text-gray-300 mb-4">Puntuación final: <span id="overlayFinalScore" class="font-bold text-white">0</span></p>
+            <div class="flex flex-col gap-2 w-48">
+              <button id="btnOverlayRestart" class="w-full py-2.5 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-arcade text-xs font-bold transition-all shadow-md">
+                REINTENTAR
+              </button>
+              <button id="btnOverlayMenu" class="w-full py-2.5 px-4 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 font-arcade text-xs transition-all">
+                VOLVER AL MENÚ
+              </button>
+            </div>
+          </div>
+
+          <!-- BOTÓN RÁPIDO DE PAUSA FLOTANTE -->
+          <button id="btnQuickPause" class="absolute top-2 right-2 p-1.5 rounded-md bg-black/50 text-gray-400 hover:text-white border border-gray-700/50 text-[10px] font-arcade z-10">
+            ⏸️
+          </button>
+        </div>
+
+        <!-- PANEL LATERAL FLOTANTE DE TETRIS (HOLD & NEXT) SOLO SI ES TETRIS -->
+        <div id="tetrisSidePanel" class="hidden w-full max-w-[360px] flex justify-between items-center mt-2 px-1 text-xs">
+          <!-- HOLD -->
+          <div class="flex items-center gap-1.5 bg-[#080918] px-2.5 py-1 rounded-lg border border-indigo-900/60">
+            <span class="font-arcade text-[9px] text-gray-400">HOLD:</span>
+            <canvas id="tetrisHoldCanvas" width="40" height="40" class="w-8 h-8"></canvas>
+          </div>
+          <!-- LÍNEAS -->
+          <div class="font-arcade text-[9px] text-purple-300">
+            LÍNEAS: <span id="tetrisLinesVal" class="text-white">0</span>
+          </div>
+          <!-- NEXT -->
+          <div class="flex items-center gap-1.5 bg-[#080918] px-2.5 py-1 rounded-lg border border-indigo-900/60">
+            <span class="font-arcade text-[9px] text-gray-400">SIG:</span>
+            <canvas id="tetrisNextCanvas" width="40" height="40" class="w-8 h-8"></canvas>
+          </div>
+        </div>
+
+        <!-- PANEL DE VIDAS PARA PAC-MAN -->
+        <div id="pacmanLivesPanel" class="hidden w-full max-w-[360px] flex justify-between items-center mt-2 px-2 text-xs">
+          <div class="flex items-center gap-1 font-arcade text-[9px] text-yellow-400">
+            <span>VIDAS:</span>
+            <div id="pacmanHeartsContainer" class="flex gap-1">🟡 🟡 🟡</div>
+          </div>
+          <div id="pacmanPowerTimer" class="font-arcade text-[9px] text-cyan-400 hidden">
+            ¡FANTASMAS AZULES!
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================================== -->
+      <!-- CONTROLES TÁCTILES VIRTUALES (MÓVIL)       -->
+      <!-- ========================================== -->
+      <div id="virtualControlsArea" class="w-full max-w-md mt-3 flex items-center justify-between px-2 gap-2">
+        
+        <!-- CONTROLES ESPECÍFICOS PARA TETRIS -->
+        <div id="controlsTetris" class="w-full flex items-center justify-between">
+          <!-- D-PAD IZQUIERDA / DERECHA / ABAJO -->
+          <div class="flex flex-col items-center gap-1">
+            <div class="flex gap-2">
+              <button id="btnTetrisLeft" class="v-btn w-14 h-12 rounded-xl bg-indigo-950/80 border border-indigo-700 flex items-center justify-center text-cyan-400 text-xl font-bold shadow-md">
+                ◀
+              </button>
+              <button id="btnTetrisRight" class="v-btn w-14 h-12 rounded-xl bg-indigo-950/80 border border-indigo-700 flex items-center justify-center text-cyan-400 text-xl font-bold shadow-md">
+                ▶
+              </button>
+            </div>
+            <button id="btnTetrisDown" class="v-btn w-30 h-10 px-6 rounded-xl bg-indigo-900/60 border border-indigo-600 flex items-center justify-center text-cyan-300 text-sm font-arcade shadow-md">
+              ▼ CAÍDA
+            </button>
+          </div>
+
+          <!-- BOTONES DE ACCIÓN: ROTAR, DROP, HOLD -->
+          <div class="flex flex-col items-end gap-1.5">
+            <div class="flex gap-2">
+              <button id="btnTetrisHold" class="v-btn w-12 h-10 rounded-lg bg-purple-950/80 border border-purple-700 flex items-center justify-center text-purple-300 font-arcade text-[9px] shadow-md">
+                HOLD
+              </button>
+              <button id="btnTetrisHardDrop" class="v-btn w-14 h-10 rounded-lg bg-pink-950/80 border border-pink-700 flex items-center justify-center text-pink-300 font-arcade text-[9px] shadow-md">
+                DROP
+              </button>
+            </div>
+            <button id="btnTetrisRotate" class="v-btn w-28 h-12 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-black font-arcade text-[11px] font-black tracking-wide shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-1">
+              🔄 ROTAR
+            </button>
+          </div>
+        </div>
+
+        <!-- CONTROLES UNIVERSALES 4-WAY (PACMAN & SNAKE) -->
+        <div id="controlsDirectional" class="hidden w-full flex items-center justify-around py-1">
+          <!-- D-PAD CLÁSICO DE CRUCETA -->
+          <div class="relative w-36 h-36 flex items-center justify-center">
+            <!-- Arriba -->
+            <button id="btnDirUp" class="v-btn absolute top-0 w-12 h-12 rounded-xl bg-indigo-950/90 border border-indigo-700 flex items-center justify-center text-yellow-300 text-xl font-bold shadow-md">
+              ▲
+            </button>
+            <!-- Izquierda -->
+            <button id="btnDirLeft" class="v-btn absolute left-0 w-12 h-12 rounded-xl bg-indigo-950/90 border border-indigo-700 flex items-center justify-center text-yellow-300 text-xl font-bold shadow-md">
+              ◀
+            </button>
+            <!-- Centro estético -->
+            <div class="w-10 h-10 rounded-full dpad-center border border-indigo-800/40"></div>
+            <!-- Derecha -->
+            <button id="btnDirRight" class="v-btn absolute right-0 w-12 h-12 rounded-xl bg-indigo-950/90 border border-indigo-700 flex items-center justify-center text-yellow-300 text-xl font-bold shadow-md">
+              ▶
+            </button>
+            <!-- Abajo -->
+            <button id="btnDirDown" class="v-btn absolute bottom-0 w-12 h-12 rounded-xl bg-indigo-950/90 border border-indigo-700 flex items-center justify-center text-yellow-300 text-xl font-bold shadow-md">
+              ▼
+            </button>
+          </div>
+
+          <!-- BOTÓN DE PAUSA / REINICIO RÁPIDO PARA DIRECCIONAL -->
+          <div class="flex flex-col gap-2">
+            <button id="btnDirPause" class="v-btn w-24 py-2.5 rounded-xl bg-indigo-900/60 border border-indigo-700 text-xs font-arcade text-gray-300">
+              PAUSA
+            </button>
+            <button id="btnDirReset" class="v-btn w-24 py-2.5 rounded-xl bg-red-950/50 border border-red-800 text-xs font-arcade text-red-300">
+              REINICIAR
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- PIE DE PÁGINA DISCRETO -->
+  <footer class="w-full py-2 text-center text-[10px] text-gray-500 border-t border-indigo-950/40">
+    Retro Arcade Web App • Tetris, Pac-Man y La Viborita • Touch & Keyboard Ready
+  </footer>
+
+  <!-- ============================================================== -->
+  <!-- SCRIPT COMPLETO: MOTOR DE AUDIO + LOS 3 JUEGOS + CONTROLADOR  -->
+  <!-- ============================================================== -->
+  <script>
+    /* ==========================================================
+       1. MOTOR DE AUDIO SINTETIZADO (Web Audio API Chiptune)
+       ========================================================== */
+    class RetroAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      toggle() {
+        this.enabled = !this.enabled;
+        return this.enabled;
+      }
+      playTone(freq, type = 'square', duration = 0.08, startVol = 0.15, endFreq = null) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          if (endFreq) {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), this.ctx.currentTime + duration);
+          }
+          gain.gain.setValueAtTime(startVol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+          // Audio no interactuado aún
+        }
+      }
+      // Efectos específicos
+      btnClick() { this.playTone(400, 'square', 0.04, 0.1, 800); }
+      tetrisMove() { this.playTone(220, 'square', 0.03, 0.08); }
+      tetrisRotate() { this.playTone(330, 'square', 0.05, 0.1, 550); }
+      tetrisDrop() { this.playTone(150, 'triangle', 0.06, 0.2, 50); }
+      tetrisClear() {
+        const notes = [261.6, 329.6, 392.0, 523.2];
+        notes.forEach((freq, i) => {
+          setTimeout(() => this.playTone(freq, 'square', 0.08, 0.12), i * 60);
+        });
+      }
+      pacDot() { this.playTone(320, 'triangle', 0.03, 0.06, 480); }
+      pacPower() { this.playTone(200, 'sine', 0.15, 0.15, 600); }
+      pacEatGhost() {
+        this.playTone(400, 'sawtooth', 0.18, 0.18, 800);
+      }
+      pacDeath() {
+        const notes = [500, 450, 400, 350, 300, 250, 200, 150];
+        notes.forEach((n, i) => {
+          setTimeout(() => this.playTone(n, 'sawtooth', 0.07, 0.15), i * 70);
+        });
+      }
+      snakeEat() { this.playTone(587, 'square', 0.05, 0.15, 880); }
+      snakeBonus() {
+        this.playTone(440, 'triangle', 0.1, 0.2, 880);
+      }
+      gameOver() {
+        this.playTone(300, 'sawtooth', 0.25, 0.2, 100);
+      }
+    }
+
+    const sound = new RetroAudioEngine();
+
+    // Feedback táctil: Capacitor Haptics nativo (iOS/Android) + fallback web
+    function haptic() {
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) {
+          window.Capacitor.Plugins.Haptics.impact({ style: 'LIGHT' });
+          return;
+        }
+      } catch (e) {}
+      if (navigator.vibrate) {
+        try { navigator.vibrate(12); } catch (e) {}
+      }
+    }
+
+    // Desbloqueo de Audio para iOS Safari / WKWebView y Android
+    const unlockAudio = () => {
+      sound.init();
+      if (sound.ctx && sound.ctx.state === 'suspended') {
+        sound.ctx.resume();
+      }
+    };
+    ['touchstart', 'touchend', 'pointerdown', 'click'].forEach(evt => {
+      document.addEventListener(evt, unlockAudio, { passive: true });
+    });
+
+    /* ==========================================================
+       2. GESTOR DE ESTADO GLOBAL Y NAVEGACIÓN
+       ========================================================== */
+    const HIGH_SCORES_KEY = 'arcade_3in1_highscores';
+    let highScores = { tetris: 0, pacman: 0, snake: 0 };
+    try {
+      const saved = localStorage.getItem(HIGH_SCORES_KEY);
+      if (saved) highScores = Object.assign(highScores, JSON.parse(saved));
+    } catch(e) {}
+
+    function saveHighScore(game, score) {
+      if (score > highScores[game]) {
+        highScores[game] = score;
+        try { localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores)); } catch(e) {}
+        updateScoresUI();
+      }
+    }
+
+    function updateScoresUI() {
+      document.getElementById('menuTetrisHi').textContent = highScores.tetris;
+      document.getElementById('menuPacmanHi').textContent = highScores.pacman;
+      document.getElementById('menuSnakeHi').textContent = highScores.snake;
+    }
+    updateScoresUI();
+
+    let currentGame = null; // 'tetris' | 'pacman' | 'snake' | null
+    let isPaused = false;
+    let animFrameId = null;
+
+    const viewMenu = document.getElementById('viewMenu');
+    const viewGame = document.getElementById('viewGame');
+    const btnBackToMenu = document.getElementById('btnBackToMenu');
+    const appHeaderTitle = document.getElementById('appHeaderTitle');
+    const headerScoreBox = document.getElementById('headerScoreBox');
+    const headerScoreVal = document.getElementById('headerScoreVal');
+    const gameOverlay = document.getElementById('gameOverlay');
+    const overlayTitle = document.getElementById('overlayTitle');
+    const overlaySubtitle = document.getElementById('overlaySubtitle');
+    const overlayFinalScore = document.getElementById('overlayFinalScore');
+    const btnOverlayRestart = document.getElementById('btnOverlayRestart');
+    const btnOverlayMenu = document.getElementById('btnOverlayMenu');
+    const gameCanvas = document.getElementById('gameCanvas');
+    const ctx = gameCanvas.getContext('2d');
+
+    // Paneles de soporte
+    const tetrisSidePanel = document.getElementById('tetrisSidePanel');
+    const pacmanLivesPanel = document.getElementById('pacmanLivesPanel');
+    const controlsTetris = document.getElementById('controlsTetris');
+    const controlsDirectional = document.getElementById('controlsDirectional');
+
+    // Alternar Sonido
+    const btnToggleSound = document.getElementById('btnToggleSound');
+    const iconSoundOn = document.getElementById('iconSoundOn');
+    const iconSoundOff = document.getElementById('iconSoundOff');
+    btnToggleSound.addEventListener('click', () => {
+      const active = sound.toggle();
+      iconSoundOn.classList.toggle('hidden', !active);
+      iconSoundOff.classList.toggle('hidden', active);
+    });
+
+    // Alternar CRT
+    const btnToggleCrt = document.getElementById('btnToggleCrt');
+    const crtOverlay = document.getElementById('crtOverlay');
+    btnToggleCrt.addEventListener('click', () => {
+      crtOverlay.classList.toggle('hidden');
+      btnToggleCrt.classList.toggle('border-purple-400');
+      btnToggleCrt.classList.toggle('bg-purple-900/60');
+    });
+
+    btnBackToMenu.addEventListener('click', () => {
+      sound.btnClick();
+      returnToMenu();
+    });
+
+    function returnToMenu() {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      currentGame = null;
+      viewGame.classList.add('hidden');
+      btnBackToMenu.classList.add('hidden');
+      headerScoreBox.classList.add('hidden');
+      viewMenu.classList.remove('hidden');
+      appHeaderTitle.textContent = "ARCADE 3-IN-1";
+      gameOverlay.classList.add('hidden');
+      updateScoresUI();
+    }
+
+    function launchGame(name) {
+      sound.btnClick();
+      currentGame = name;
+      viewMenu.classList.add('hidden');
+      viewGame.classList.remove('hidden');
+      btnBackToMenu.classList.remove('hidden');
+      headerScoreBox.classList.remove('hidden');
+      gameOverlay.classList.add('hidden');
+      isPaused = false;
+
+      // Adaptar interfaz
+      const titleMap = { tetris: 'TETRIS PRO', pacman: 'PAC-MAN', snake: 'LA VIBORITA' };
+      appHeaderTitle.textContent = titleMap[name] || 'ARCADE';
+      document.getElementById('gameCurrentTitle').textContent = titleMap[name];
+      document.getElementById('gameHiScoreVal').textContent = highScores[name] || 0;
+
+      tetrisSidePanel.classList.toggle('hidden', name !== 'tetris');
+      pacmanLivesPanel.classList.toggle('hidden', name !== 'pacman');
+      controlsTetris.classList.toggle('hidden', name !== 'tetris');
+      controlsDirectional.classList.toggle('hidden', name === 'tetris');
+
+      if (name === 'tetris') startTetris();
+      else if (name === 'pacman') startPacman();
+      else if (name === 'snake') startSnake();
+    }
+
+    function showGameOver(finalScore) {
+      sound.gameOver();
+      saveHighScore(currentGame, finalScore);
+      overlayTitle.textContent = "¡GAME OVER!";
+      overlayTitle.className = "font-arcade text-lg sm:text-xl text-red-500 mb-2";
+      overlaySubtitle.innerHTML = `Puntuación: <span class="font-bold text-yellow-300">${finalScore}</span>`;
+      overlayFinalScore.textContent = finalScore;
+      gameOverlay.classList.remove('hidden');
+    }
+
+    btnOverlayRestart.addEventListener('click', () => {
+      sound.btnClick();
+      gameOverlay.classList.add('hidden');
+      if (currentGame === 'tetris') startTetris();
+      else if (currentGame === 'pacman') startPacman();
+      else if (currentGame === 'snake') startSnake();
+    });
+
+    btnOverlayMenu.addEventListener('click', () => {
+      sound.btnClick();
+      returnToMenu();
+    });
+
+    // Botón pausa rápido
+    document.getElementById('btnQuickPause').addEventListener('click', () => togglePause());
+    document.getElementById('btnDirPause').addEventListener('click', () => togglePause());
+
+    function togglePause() {
+      if (!currentGame) return;
+      isPaused = !isPaused;
+      if (isPaused) {
+        overlayTitle.textContent = "PAUSA";
+        overlayTitle.className = "font-arcade text-lg sm:text-xl text-yellow-400 mb-2";
+        overlaySubtitle.textContent = "Presiona Reanudar para continuar";
+        btnOverlayRestart.textContent = "REANUDAR";
+        gameOverlay.classList.remove('hidden');
+      } else {
+        gameOverlay.classList.add('hidden');
+        btnOverlayRestart.textContent = "REINTENTAR";
+      }
+    }
+
+
+    /* ==========================================================
+       3. JUEGO 1: TETRIS PRO
+       ========================================================== */
+    const TETRIS_COLS = 10;
+    const TETRIS_ROWS = 20;
+    const TETRIS_BLOCK_SIZE = 17; // Base visual en canvas 170x340 (escalado con dpr)
+
+    const TETROMINOES = {
+      I: { shape: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], color: '#00f3ff' },
+      J: { shape: [[1,0,0],[1,1,1],[0,0,0]], color: '#0066ff' },
+      L: { shape: [[0,0,1],[1,1,1],[0,0,0]], color: '#ff6600' },
+      O: { shape: [[1,1],[1,1]], color: '#ffe600' },
+      S: { shape: [[0,1,1],[1,1,0],[0,0,0]], color: '#00ff66' },
+      T: { shape: [[0,1,0],[1,1,1],[0,0,0]], color: '#a855f7' },
+      Z: { shape: [[1,1,0],[0,1,1],[0,0,0]], color: '#ff0055' }
+    };
+    const PIECE_NAMES = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+
+    let tetrisBoard = [];
+    let tetrisPiece = null;
+    let tetrisNext = null;
+    let tetrisHold = null;
+    let tetrisCanHold = true;
+    let tetrisScore = 0;
+    let tetrisLines = 0;
+    let tetrisLevel = 1;
+    let tetrisDropCounter = 0;
+    let tetrisLastTime = 0;
+
+    const holdCanvas = document.getElementById('tetrisHoldCanvas');
+    const holdCtx = holdCanvas.getContext('2d');
+    const nextCanvas = document.getElementById('tetrisNextCanvas');
+    const nextCtx = nextCanvas.getContext('2d');
+
+    function createPiece(name) {
+      const proto = TETROMINOES[name || PIECE_NAMES[Math.floor(Math.random() * PIECE_NAMES.length)]];
+      return {
+        name: name || proto.name,
+        shape: proto.shape.map(row => [...row]),
+        color: proto.color,
+        x: Math.floor(TETRIS_COLS / 2) - Math.ceil(proto.shape[0].length / 2),
+        y: 0
+      };
+    }
+
+    function rotateMatrix(matrix) {
+      const N = matrix.length;
+      return matrix.map((row, i) => row.map((_, j) => matrix[N - 1 - j][i]));
+    }
+
+    function tetrisCollides(board, piece, offX = 0, offY = 0, shape = piece.shape) {
+      for (let y = 0; y < shape.length; y++) {
+        for (let x = 0; x < shape[y].length; x++) {
+          if (shape[y][x] !== 0) {
+            const newX = piece.x + x + offX;
+            const newY = piece.y + y + offY;
+            if (newX < 0 || newX >= TETRIS_COLS || newY >= TETRIS_ROWS) return true;
+            if (newY >= 0 && board[newY][newX] !== 0) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function startTetris() {
+      gameCanvas.width = 240;
+      gameCanvas.height = 420;
+      tetrisBoard = Array.from({ length: TETRIS_ROWS }, () => Array(TETRIS_COLS).fill(0));
+      tetrisScore = 0;
+      tetrisLines = 0;
+      tetrisLevel = 1;
+      tetrisCanHold = true;
+      tetrisHold = null;
+      tetrisPiece = createPiece();
+      tetrisNext = createPiece();
+      tetrisDropCounter = 0;
+      tetrisLastTime = performance.now();
+
+      updateTetrisUI();
+      drawTetrisMiniPreview(holdCtx, null);
+      drawTetrisMiniPreview(nextCtx, tetrisNext);
+
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(tetrisLoop);
+    }
+
+    function updateTetrisUI() {
+      document.getElementById('gameScoreVal').textContent = tetrisScore;
+      document.getElementById('headerScoreVal').textContent = tetrisScore;
+      document.getElementById('tetrisLinesVal').textContent = tetrisLines;
+      document.getElementById('gameExtraInfo').textContent = `LVL ${tetrisLevel}`;
+    }
+
+    function drawTetrisMiniPreview(cCtx, piece) {
+      cCtx.clearRect(0, 0, 40, 40);
+      if (!piece) return;
+      const s = piece.shape;
+      const size = 7;
+      const offX = Math.floor((40 - s[0].length * size) / 2);
+      const offY = Math.floor((40 - s.length * size) / 2);
+
+      for (let y = 0; y < s.length; y++) {
+        for (let x = 0; x < s[y].length; x++) {
+          if (s[y][x]) {
+            cCtx.fillStyle = piece.color;
+            cCtx.fillRect(offX + x * size, offY + y * size, size - 1, size - 1);
+          }
+        }
+      }
+    }
+
+    function tetrisRotate() {
+      if (!tetrisPiece || isPaused) return;
+      haptic();
+      const rotated = rotateMatrix(tetrisPiece.shape);
+      const kicks = [0, -1, 1, -2, 2];
+      for (let k of kicks) {
+        if (!tetrisCollides(tetrisBoard, tetrisPiece, k, 0, rotated)) {
+          tetrisPiece.x += k;
+          tetrisPiece.shape = rotated;
+          sound.tetrisRotate();
+          break;
+        }
+      }
+    }
+
+    function tetrisMove(dir) {
+      if (!tetrisPiece || isPaused) return;
+      haptic();
+      if (!tetrisCollides(tetrisBoard, tetrisPiece, dir, 0)) {
+        tetrisPiece.x += dir;
+        sound.tetrisMove();
+      }
+    }
+
+    function tetrisSoftDrop() {
+      if (!tetrisPiece || isPaused) return;
+      haptic();
+      if (!tetrisCollides(tetrisBoard, tetrisPiece, 0, 1)) {
+        tetrisPiece.y++;
+        tetrisScore += 1;
+        updateTetrisUI();
+      } else {
+        tetrisLockPiece();
+      }
+      tetrisDropCounter = 0;
+    }
+
+    function tetrisHardDrop() {
+      if (!tetrisPiece || isPaused) return;
+      haptic();
+      let dropDist = 0;
+      while (!tetrisCollides(tetrisBoard, tetrisPiece, 0, 1)) {
+        tetrisPiece.y++;
+        dropDist++;
+      }
+      tetrisScore += dropDist * 2;
+      sound.tetrisDrop();
+      tetrisLockPiece();
+      updateTetrisUI();
+    }
+
+    function tetrisHoldAction() {
+      if (!tetrisPiece || !tetrisCanHold || isPaused) return;
+      haptic();
+      sound.btnClick();
+      if (!tetrisHold) {
+        tetrisHold = createPiece(tetrisPiece.name);
+        tetrisPiece = tetrisNext;
+        tetrisNext = createPiece();
+        drawTetrisMiniPreview(nextCtx, tetrisNext);
+      } else {
+        const temp = createPiece(tetrisHold.name);
+        tetrisHold = createPiece(tetrisPiece.name);
+        tetrisPiece = temp;
+      }
+      tetrisPiece.x = Math.floor(TETRIS_COLS / 2) - Math.ceil(tetrisPiece.shape[0].length / 2);
+      tetrisPiece.y = 0;
+      tetrisCanHold = false;
+      drawTetrisMiniPreview(holdCtx, tetrisHold);
+    }
+
+    function tetrisLockPiece() {
+      for (let y = 0; y < tetrisPiece.shape.length; y++) {
+        for (let x = 0; x < tetrisPiece.shape[y].length; x++) {
+          if (tetrisPiece.shape[y][x]) {
+            if (tetrisPiece.y + y < 0) {
+              showGameOver(tetrisScore);
+              return;
+            }
+            tetrisBoard[tetrisPiece.y + y][tetrisPiece.x + x] = tetrisPiece.color;
+          }
+        }
+      }
+
+      // Limpiar líneas
+      let linesCleared = 0;
+      for (let r = TETRIS_ROWS - 1; r >= 0; r--) {
+        if (tetrisBoard[r].every(c => c !== 0)) {
+          tetrisBoard.splice(r, 1);
+          tetrisBoard.unshift(Array(TETRIS_COLS).fill(0));
+          linesCleared++;
+          r++; // Repetir índice por el desplazamiento
+        }
+      }
+
+      if (linesCleared > 0) {
+        tetrisLines += linesCleared;
+        const linePoints = [0, 100, 300, 500, 800];
+        tetrisScore += (linePoints[linesCleared] || 1000) * tetrisLevel;
+        tetrisLevel = Math.floor(tetrisLines / 10) + 1;
+        sound.tetrisClear();
+        updateTetrisUI();
+      }
+
+      // Siguiente pieza
+      tetrisPiece = tetrisNext;
+      tetrisNext = createPiece();
+      tetrisCanHold = true;
+      drawTetrisMiniPreview(nextCtx, tetrisNext);
+
+      // Comprobar Game Over si la nueva pieza colisiona al nacer
+      if (tetrisCollides(tetrisBoard, tetrisPiece, 0, 0)) {
+        showGameOver(tetrisScore);
+      }
+    }
+
+    function drawTetris() {
+      ctx.fillStyle = '#060713';
+      ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      const cellW = gameCanvas.width / TETRIS_COLS;
+      const cellH = gameCanvas.height / TETRIS_ROWS;
+
+      // Rejilla de fondo discreta
+      ctx.strokeStyle = '#121630';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= TETRIS_COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * cellW, 0);
+        ctx.lineTo(x * cellW, gameCanvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= TETRIS_ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * cellH);
+        ctx.lineTo(gameCanvas.width, y * cellH);
+        ctx.stroke();
+      }
+
+      // Tablero fijado
+      for (let r = 0; r < TETRIS_ROWS; r++) {
+        for (let c = 0; c < TETRIS_COLS; c++) {
+          if (tetrisBoard[r][c]) {
+            drawTetrisBlock(c * cellW, r * cellH, cellW, cellH, tetrisBoard[r][c]);
+          }
+        }
+      }
+
+      if (tetrisPiece) {
+        // Ghost Piece (sombra de caída)
+        let ghostY = 0;
+        while (!tetrisCollides(tetrisBoard, tetrisPiece, 0, ghostY + 1)) {
+          ghostY++;
+        }
+        for (let y = 0; y < tetrisPiece.shape.length; y++) {
+          for (let x = 0; x < tetrisPiece.shape[y].length; x++) {
+            if (tetrisPiece.shape[y][x]) {
+              const gx = (tetrisPiece.x + x) * cellW;
+              const gy = (tetrisPiece.y + ghostY + y) * cellH;
+              ctx.strokeStyle = tetrisPiece.color;
+              ctx.globalAlpha = 0.35;
+              ctx.lineWidth = 2;
+              ctx.strokeRect(gx + 2, gy + 2, cellW - 4, cellH - 4);
+              ctx.globalAlpha = 1.0;
+            }
+          }
+        }
+
+        // Pieza activa
+        for (let y = 0; y < tetrisPiece.shape.length; y++) {
+          for (let x = 0; x < tetrisPiece.shape[y].length; x++) {
+            if (tetrisPiece.shape[y][x]) {
+              drawTetrisBlock((tetrisPiece.x + x) * cellW, (tetrisPiece.y + y) * cellH, cellW, cellH, tetrisPiece.color);
+            }
+          }
+        }
+      }
+    }
+
+    function drawTetrisBlock(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 1, y + 1, w - 2, h - 2);
+
+      // Bisel de volumen 3D
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.fillRect(x + 1, y + 1, w - 2, 3);
+      ctx.fillRect(x + 1, y + 1, 3, h - 2);
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.fillRect(x + 1, y + h - 4, w - 2, 3);
+      ctx.fillRect(x + w - 4, y + 1, 3, h - 2);
+    }
+
+    function tetrisLoop(time = 0) {
+      if (currentGame !== 'tetris') return;
+      const deltaTime = time - tetrisLastTime;
+      tetrisLastTime = time;
+
+      if (!isPaused && tetrisPiece) {
+        tetrisDropCounter += deltaTime;
+        const dropInterval = Math.max(100, 800 - (tetrisLevel - 1) * 75);
+        if (tetrisDropCounter > dropInterval) {
+          if (!tetrisCollides(tetrisBoard, tetrisPiece, 0, 1)) {
+            tetrisPiece.y++;
+          } else {
+            tetrisLockPiece();
+          }
+          tetrisDropCounter = 0;
+        }
+      }
+
+      drawTetris();
+      animFrameId = requestAnimationFrame(tetrisLoop);
+    }
+
+
+    /* ==========================================================
+       4. JUEGO 2: PAC-MAN RETRO
+       ========================================================== */
+    // Mapa simétrico de 19 x 21
+    // 0: vacío/túnel, 1: pared, 2: punto (pellet), 3: píldora de poder, 4: casa fantasmas, 5: puerta casa
+    const PAC_MAZE_TEMPLATE = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,3,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,3,1],
+      [1,2,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1],
+      [1,2,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1],
+      [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+      [1,2,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,2,1],
+      [1,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,1],
+      [1,1,1,1,2,1,1,1,0,1,0,1,1,1,2,1,1,1,1],
+      [0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0],
+      [1,1,1,1,2,1,0,1,1,5,1,1,0,1,2,1,1,1,1],
+      [0,0,0,0,2,0,0,1,4,4,4,1,0,0,2,0,0,0,0], // Fila túnel (col 0 <-> col 18)
+      [1,1,1,1,2,1,0,1,1,1,1,1,0,1,2,1,1,1,1],
+      [0,0,0,1,2,1,0,0,0,0,0,0,0,1,2,1,0,0,0],
+      [1,1,1,1,2,1,2,1,1,1,1,1,2,1,2,1,1,1,1],
+      [1,2,2,2,2,2,2,2,2,1,2,2,2,2,2,2,2,2,1],
+      [1,2,1,1,2,1,1,1,2,1,2,1,1,1,2,1,1,2,1],
+      [1,3,2,1,2,2,2,2,2,0,2,2,2,2,2,1,2,3,1],
+      [1,1,2,1,2,1,2,1,1,1,1,1,2,1,2,1,2,1,1],
+      [1,2,2,2,2,1,2,2,2,1,2,2,2,1,2,2,2,2,1],
+      [1,2,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,2,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    let pacMaze = [];
+    let pacman = { x: 9, y: 16, dirX: 0, dirY: 0, nextDirX: 0, nextDirY: 0, angle: 0, mouth: 0.2, mouthDir: 1 };
+    let ghosts = [];
+    let pacScore = 0;
+    let pacLives = 3;
+    let pacFrightenedTimer = 0;
+    let pacFrightenedScoreMult = 1;
+    let pacTotalPellets = 0;
+    let pacMoveCounter = 0;
+    let ghostMoveCounter = 0;
+
+    function startPacman() {
+      gameCanvas.width = 304; // 19 * 16
+      gameCanvas.height = 336; // 21 * 16
+
+      pacMaze = PAC_MAZE_TEMPLATE.map(row => [...row]);
+      pacScore = 0;
+      pacLives = 3;
+      pacFrightenedTimer = 0;
+      pacTotalPellets = 0;
+      pacMaze.forEach(row => row.forEach(tile => { if (tile === 2 || tile === 3) pacTotalPellets++; }));
+
+      resetPacmanEntities();
+      updatePacmanUI();
+
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(pacmanLoop);
+    }
+
+    function resetPacmanEntities() {
+      pacman.x = 9;
+      pacman.y = 16;
+      pacman.dirX = 0;
+      pacman.dirY = 0;
+      pacman.nextDirX = -1; // Comienza mirando a la izquierda
+      pacman.nextDirY = 0;
+
+      ghosts = [
+        { name: 'Blinky', color: '#ff0033', x: 9, y: 9, dirX: 0, dirY: -1, state: 'normal' },
+        { name: 'Pinky', color: '#ff99cc', x: 8, y: 10, dirX: 0, dirY: -1, state: 'normal' },
+        { name: 'Inky', color: '#00ffff', x: 9, y: 10, dirX: 0, dirY: -1, state: 'normal' },
+        { name: 'Clyde', color: '#ff9900', x: 10, y: 10, dirX: 0, dirY: -1, state: 'normal' }
+      ];
+    }
+
+    function updatePacmanUI() {
+      document.getElementById('gameScoreVal').textContent = pacScore;
+      document.getElementById('headerScoreVal').textContent = pacScore;
+      document.getElementById('gameExtraInfo').textContent = `RESTAN: ${pacTotalPellets}`;
+
+      const container = document.getElementById('pacmanHeartsContainer');
+      let heartsHtml = '';
+      for (let i = 0; i < pacLives; i++) heartsHtml += '🟡 ';
+      container.innerHTML = heartsHtml || '💀';
+
+      const powerMsg = document.getElementById('pacmanPowerTimer');
+      if (pacFrightenedTimer > 0) {
+        powerMsg.classList.remove('hidden');
+        powerMsg.textContent = `¡CAZA FANTASMAS! (${Math.ceil(pacFrightenedTimer / 60)}s)`;
+      } else {
+        powerMsg.classList.add('hidden');
+      }
+    }
+
+    function pacIsWall(x, y) {
+      if (y === 10 && (x < 0 || x >= 19)) return false; // Túnel lateral
+      if (x < 0 || x >= 19 || y < 0 || y >= 21) return true;
+      const tile = pacMaze[y][x];
+      return tile === 1;
+    }
+
+    function pacmanSetDir(dx, dy) {
+      pacman.nextDirX = dx;
+      pacman.nextDirY = dy;
+      haptic();
+    }
+
+    function updatePacmanLogic() {
+      if (isPaused) return;
+
+      // 1. Manejo de Dirección de Pac-Man (Buffer de giro suave)
+      const nextX = pacman.x + pacman.nextDirX;
+      const nextY = pacman.y + pacman.nextDirY;
+      if (!pacIsWall(nextX, nextY) && pacMaze[nextY] && pacMaze[nextY][nextX] !== 5) {
+        pacman.dirX = pacman.nextDirX;
+        pacman.dirY = pacman.nextDirY;
+      }
+
+      // Movimiento Pac-Man
+      pacMoveCounter++;
+      if (pacMoveCounter >= 8) { // Velocidad de Pac-Man
+        pacMoveCounter = 0;
+        const targetX = pacman.x + pacman.dirX;
+        const targetY = pacman.y + pacman.dirY;
+
+        // Túnel wrap
+        if (pacman.y === 10 && targetX < 0) {
+          pacman.x = 18;
+        } else if (pacman.y === 10 && targetX >= 19) {
+          pacman.x = 0;
+        } else if (!pacIsWall(targetX, targetY) && pacMaze[targetY][targetX] !== 5) {
+          pacman.x = targetX;
+          pacman.y = targetY;
+
+          // Comer puntos
+          const tile = pacMaze[pacman.y][pacman.x];
+          if (tile === 2) {
+            pacMaze[pacman.y][pacman.x] = 0;
+            pacScore += 10;
+            pacTotalPellets--;
+            sound.pacDot();
+            updatePacmanUI();
+          } else if (tile === 3) {
+            pacMaze[pacman.y][pacman.x] = 0;
+            pacScore += 50;
+            pacTotalPellets--;
+            pacFrightenedTimer = 360; // ~6 segundos a 60fps
+            pacFrightenedScoreMult = 1;
+            ghosts.forEach(g => { if (g.state !== 'eyes') g.state = 'frightened'; });
+            sound.pacPower();
+            updatePacmanUI();
+          }
+
+          // Victoria si no quedan puntos
+          if (pacTotalPellets <= 0) {
+            pacScore += 1000;
+            startPacman();
+            return;
+          }
+        }
+      }
+
+      // Animación de boca
+      pacman.mouth += 0.05 * pacman.mouthDir;
+      if (pacman.mouth > 0.35 || pacman.mouth < 0.02) pacman.mouthDir *= -1;
+
+      // 2. Temporizador modo asustado
+      if (pacFrightenedTimer > 0) {
+        pacFrightenedTimer--;
+        if (pacFrightenedTimer <= 0) {
+          ghosts.forEach(g => { if (g.state === 'frightened') g.state = 'normal'; });
+        }
+        updatePacmanUI();
+      }
+
+      // 3. IA de Fantasmas
+      ghostMoveCounter++;
+      const ghostSpeed = pacFrightenedTimer > 0 ? 12 : 9; // Más lentos cuando asustados
+      if (ghostMoveCounter >= ghostSpeed) {
+        ghostMoveCounter = 0;
+        ghosts.forEach(g => {
+          updateGhost(g);
+        });
+      }
+
+      // 4. Colisiones Pac-Man vs Fantasmas
+      ghosts.forEach(g => {
+        if (g.x === pacman.x && g.y === pacman.y) {
+          if (g.state === 'frightened') {
+            g.state = 'eyes';
+            g.x = 9; g.y = 10; // Regresa a casa
+            const pts = 200 * pacFrightenedScoreMult;
+            pacScore += pts;
+            pacFrightenedScoreMult *= 2;
+            sound.pacEatGhost();
+            updatePacmanUI();
+          } else if (g.state === 'normal') {
+            sound.pacDeath();
+            pacLives--;
+            updatePacmanUI();
+            if (pacLives <= 0) {
+              showGameOver(pacScore);
+            } else {
+              resetPacmanEntities();
+            }
+          }
+        }
+      });
+    }
+
+    function updateGhost(g) {
+      if (g.state === 'eyes') {
+        g.state = 'normal';
+        g.y = 8;
+        return;
+      }
+
+      // Opciones de movimiento en cruceta
+      const directions = [
+        { dx: 0, dy: -1 },
+        { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 1, dy: 0 }
+      ];
+
+      // Filtrar paredes y no retroceder de inmediato salvo callejón
+      const valid = directions.filter(d => {
+        const nx = g.x + d.dx;
+        const ny = g.y + d.dy;
+        if (pacIsWall(nx, ny)) return false;
+        // Evitar reversa 180° directa si hay más caminos
+        if (d.dx === -g.dirX && d.dy === -g.dirY) return false;
+        return true;
+      });
+
+      const choices = valid.length > 0 ? valid : directions.filter(d => !pacIsWall(g.x + d.dx, g.y + d.dy));
+      if (choices.length === 0) return;
+
+      let chosenDir;
+      if (g.state === 'frightened') {
+        // Movimiento aleatorio
+        chosenDir = choices[Math.floor(Math.random() * choices.length)];
+      } else {
+        // Persecución inteligente básica hacia Pac-Man
+        choices.sort((a, b) => {
+          const distA = Math.hypot((g.x + a.dx) - pacman.x, (g.y + a.dy) - pacman.y);
+          const distB = Math.hypot((g.x + b.dx) - pacman.x, (g.y + b.dy) - pacman.y);
+          return distA - distB;
+        });
+        // 75% elige el camino más cercano, 25% aleatorio para dinamismo
+        chosenDir = Math.random() < 0.75 ? choices[0] : choices[Math.floor(Math.random() * choices.length)];
+      }
+
+      if (chosenDir) {
+        g.dirX = chosenDir.dx;
+        g.dirY = chosenDir.dy;
+        g.x += g.dirX;
+        g.y += g.dirY;
+
+        // Wrap en túnel
+        if (g.y === 10 && g.x < 0) g.x = 18;
+        else if (g.y === 10 && g.x >= 19) g.x = 0;
+      }
+    }
+
+    function drawPacmanGame() {
+      ctx.fillStyle = '#04050d';
+      ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      const tileW = gameCanvas.width / 19;
+      const tileH = gameCanvas.height / 21;
+
+      // Dibujar laberinto
+      for (let r = 0; r < 21; r++) {
+        for (let c = 0; c < 19; c++) {
+          const tile = pacMaze[r][c];
+          const x = c * tileW;
+          const y = r * tileH;
+
+          if (tile === 1) { // Pared
+            ctx.fillStyle = '#1e1b4b';
+            ctx.fillRect(x, y, tileW, tileH);
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x + 1, y + 1, tileW - 2, tileH - 2);
+          } else if (tile === 2) { // Pellet normal
+            ctx.fillStyle = '#ffe082';
+            ctx.beginPath();
+            ctx.arc(x + tileW / 2, y + tileH / 2, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (tile === 3) { // Energizer
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#ffe600';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(x + tileW / 2, y + tileH / 2, 5.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          } else if (tile === 5) { // Puerta casa fantasmas
+            ctx.fillStyle = '#ec4899';
+            ctx.fillRect(x, y + tileH / 2 - 2, tileW, 4);
+          }
+        }
+      }
+
+      // Dibujar Pac-Man
+      const px = pacman.x * tileW + tileW / 2;
+      const py = pacman.y * tileH + tileH / 2;
+      let rot = 0;
+      if (pacman.dirX === 1) rot = 0;
+      else if (pacman.dirX === -1) rot = Math.PI;
+      else if (pacman.dirY === 1) rot = Math.PI * 0.5;
+      else if (pacman.dirY === -1) rot = Math.PI * 1.5;
+
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(rot);
+      ctx.fillStyle = '#ffe600';
+      ctx.beginPath();
+      ctx.arc(0, 0, tileW * 0.48, pacman.mouth * Math.PI, (2 - pacman.mouth) * Math.PI);
+      ctx.lineTo(0, 0);
+      ctx.fill();
+      ctx.restore();
+
+      // Dibujar Fantasmas
+      ghosts.forEach(g => {
+        const gx = g.x * tileW + tileW / 2;
+        const gy = g.y * tileH + tileH / 2;
+        const radius = tileW * 0.45;
+
+        ctx.save();
+        ctx.translate(gx, gy);
+
+        let gColor = g.color;
+        if (g.state === 'frightened') {
+          // Si quedan menos de 2 segundos, parpadea en blanco
+          gColor = (pacFrightenedTimer < 120 && Math.floor(pacFrightenedTimer / 10) % 2 === 0) ? '#ffffff' : '#2563eb';
+        }
+
+        ctx.fillStyle = gColor;
+        ctx.beginPath();
+        ctx.arc(0, -2, radius, Math.PI, 0, false);
+        ctx.lineTo(radius, radius * 0.8);
+        // Tentáculos inferiores
+        ctx.lineTo(radius * 0.33, radius * 0.4);
+        ctx.lineTo(0, radius * 0.8);
+        ctx.lineTo(-radius * 0.33, radius * 0.4);
+        ctx.lineTo(-radius, radius * 0.8);
+        ctx.closePath();
+        ctx.fill();
+
+        // Ojos
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-radius * 0.35, -radius * 0.2, radius * 0.28, 0, Math.PI * 2);
+        ctx.arc(radius * 0.35, -radius * 0.2, radius * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pupilas
+        ctx.fillStyle = g.state === 'frightened' ? '#ff9900' : '#000066';
+        ctx.beginPath();
+        ctx.arc(-radius * 0.35 + g.dirX * 2, -radius * 0.2 + g.dirY * 2, radius * 0.14, 0, Math.PI * 2);
+        ctx.arc(radius * 0.35 + g.dirX * 2, -radius * 0.2 + g.dirY * 2, radius * 0.14, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      });
+    }
+
+    function pacmanLoop() {
+      if (currentGame !== 'pacman') return;
+      updatePacmanLogic();
+      drawPacmanGame();
+      animFrameId = requestAnimationFrame(pacmanLoop);
+    }
+
+
+    /* ==========================================================
+       5. JUEGO 3: LA VIBORITA (NEON SNAKE)
+       ========================================================== */
+    const SNAKE_GRID = 20;
+    let snake = [];
+    let snakeDir = { x: 1, y: 0 };
+    let snakeNextDir = { x: 1, y: 0 };
+    let snakeFood = { x: 15, y: 10 };
+    let snakeBonusFood = null;
+    let snakeBonusTimer = 0;
+    let snakeScore = 0;
+    let snakeSpeed = 120;
+    let snakeLastTick = 0;
+
+    function startSnake() {
+      gameCanvas.width = 320;
+      gameCanvas.height = 320;
+
+      snake = [
+        { x: 10, y: 10 },
+        { x: 9, y: 10 },
+        { x: 8, y: 10 }
+      ];
+      snakeDir = { x: 1, y: 0 };
+      snakeNextDir = { x: 1, y: 0 };
+      snakeScore = 0;
+      snakeSpeed = 120;
+      snakeBonusFood = null;
+      snakeBonusTimer = 0;
+      spawnSnakeFood();
+      updateSnakeUI();
+
+      snakeLastTick = performance.now();
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(snakeLoop);
+    }
+
+    function spawnSnakeFood() {
+      let valid = false;
+      while (!valid) {
+        const fx = Math.floor(Math.random() * SNAKE_GRID);
+        const fy = Math.floor(Math.random() * SNAKE_GRID);
+        if (!snake.some(segment => segment.x === fx && segment.y === fy)) {
+          snakeFood = { x: fx, y: fy };
+          valid = true;
+        }
+      }
+
+      // Cada 5 comidas puede aparecer bonus dorado
+      if (snake.length % 5 === 0 && !snakeBonusFood) {
+        let bValid = false;
+        while (!bValid) {
+          const bx = Math.floor(Math.random() * SNAKE_GRID);
+          const by = Math.floor(Math.random() * SNAKE_GRID);
+          if (!snake.some(seg => seg.x === bx && seg.y === by) && (bx !== snakeFood.x || by !== snakeFood.y)) {
+            snakeBonusFood = { x: bx, y: by };
+            snakeBonusTimer = 600; // 10 segundos
+            bValid = true;
+          }
+        }
+      }
+    }
+
+    function updateSnakeUI() {
+      document.getElementById('gameScoreVal').textContent = snakeScore;
+      document.getElementById('headerScoreVal').textContent = snakeScore;
+      document.getElementById('gameExtraInfo').textContent = `LARGO: ${snake.length}`;
+    }
+
+    function snakeSetDir(dx, dy) {
+      // Prevenir marcha atrás inmediata
+      if (dx === -snakeDir.x && dy === -snakeDir.y) return;
+      snakeNextDir = { x: dx, y: dy };
+      haptic();
+    }
+
+    function updateSnakeLogic() {
+      if (isPaused) return;
+
+      snakeDir = { ...snakeNextDir };
+      const head = { x: snake[0].x + snakeDir.x, y: snake[0].y + snakeDir.y };
+
+      // Colisión contra bordes (pared sólida clásica arcade)
+      if (head.x < 0 || head.x >= SNAKE_GRID || head.y < 0 || head.y >= SNAKE_GRID) {
+        showGameOver(snakeScore);
+        return;
+      }
+
+      // Colisión contra sí misma
+      if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        showGameOver(snakeScore);
+        return;
+      }
+
+      snake.unshift(head);
+
+      // ¿Comió comida normal?
+      if (head.x === snakeFood.x && head.y === snakeFood.y) {
+        snakeScore += 10;
+        sound.snakeEat();
+        // Aumentar velocidad paulatinamente
+        snakeSpeed = Math.max(55, 120 - Math.floor(snake.length * 1.5));
+        spawnSnakeFood();
+        updateSnakeUI();
+      } else if (snakeBonusFood && head.x === snakeBonusFood.x && head.y === snakeBonusFood.y) {
+        // ¿Comió fruta dorada?
+        snakeScore += 50;
+        sound.snakeBonus();
+        snakeBonusFood = null;
+        snakeBonusTimer = 0;
+        updateSnakeUI();
+      } else {
+        snake.pop(); // Quitar cola si no comió
+      }
+
+      // Manejar temporizador bonus
+      if (snakeBonusFood) {
+        snakeBonusTimer--;
+        if (snakeBonusTimer <= 0) {
+          snakeBonusFood = null;
+        }
+      }
+    }
+
+    function drawSnakeGame() {
+      ctx.fillStyle = '#060914';
+      ctx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      const cellSize = gameCanvas.width / SNAKE_GRID;
+
+      // Rejilla de fondo
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= SNAKE_GRID; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * cellSize, 0);
+        ctx.lineTo(i * cellSize, gameCanvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * cellSize);
+        ctx.lineTo(gameCanvas.width, i * cellSize);
+        ctx.stroke();
+      }
+
+      // Manzana normal
+      ctx.fillStyle = '#ff0055';
+      ctx.shadowColor = '#ff0055';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(
+        snakeFood.x * cellSize + cellSize / 2,
+        snakeFood.y * cellSize + cellSize / 2,
+        cellSize * 0.4,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Bonus dorado
+      if (snakeBonusFood) {
+        ctx.fillStyle = '#ffe600';
+        ctx.shadowColor = '#ffe600';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(
+          snakeBonusFood.x * cellSize + cellSize / 2,
+          snakeBonusFood.y * cellSize + cellSize / 2,
+          cellSize * 0.45,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // Cuerpo de la viborita
+      snake.forEach((seg, i) => {
+        const sx = seg.x * cellSize;
+        const sy = seg.y * cellSize;
+
+        if (i === 0) {
+          // Cabeza con brillo neón
+          ctx.fillStyle = '#00ff66';
+          ctx.shadowColor = '#00ff66';
+          ctx.shadowBlur = 12;
+          ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+          ctx.shadowBlur = 0;
+
+          // Ojos
+          ctx.fillStyle = '#000000';
+          const eyeOffX = snakeDir.x === 0 ? 3 : (snakeDir.x === 1 ? cellSize - 5 : 2);
+          const eyeOffY = snakeDir.y === 0 ? 3 : (snakeDir.y === 1 ? cellSize - 5 : 2);
+          ctx.fillRect(sx + eyeOffX, sy + eyeOffY, 3, 3);
+        } else {
+          // Segmentos del cuerpo con gradiente
+          const alpha = Math.max(0.4, 1 - (i / snake.length) * 0.6);
+          ctx.fillStyle = `rgba(0, 230, 90, ${alpha})`;
+          ctx.fillRect(sx + 2, sy + 2, cellSize - 4, cellSize - 4);
+        }
+      });
+    }
+
+    function snakeLoop(time = 0) {
+      if (currentGame !== 'snake') return;
+      const delta = time - snakeLastTick;
+
+      if (delta >= snakeSpeed) {
+        snakeLastTick = time;
+        updateSnakeLogic();
+      }
+
+      drawSnakeGame();
+      animFrameId = requestAnimationFrame(snakeLoop);
+    }
+
+
+    /* ==========================================================
+       6. LISTENERS DE CONTROLES: TECLADO Y BOTONES TÁCTILES
+       ========================================================== */
+    // Teclado universal
+    window.addEventListener('keydown', (e) => {
+      if (!currentGame) return;
+
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        togglePause();
+        return;
+      }
+
+      if (currentGame === 'tetris') {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+          e.preventDefault(); tetrisMove(-1);
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+          e.preventDefault(); tetrisMove(1);
+        } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+          e.preventDefault(); tetrisRotate();
+        } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+          e.preventDefault(); tetrisSoftDrop();
+        } else if (e.key === ' ') {
+          e.preventDefault(); tetrisHardDrop();
+        } else if (e.key === 'c' || e.key === 'C' || e.key === 'Shift') {
+          e.preventDefault(); tetrisHoldAction();
+        }
+      } else if (currentGame === 'pacman') {
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+          e.preventDefault(); pacmanSetDir(0, -1);
+        } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+          e.preventDefault(); pacmanSetDir(0, 1);
+        } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+          e.preventDefault(); pacmanSetDir(-1, 0);
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+          e.preventDefault(); pacmanSetDir(1, 0);
+        }
+      } else if (currentGame === 'snake') {
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+          e.preventDefault(); snakeSetDir(0, -1);
+        } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+          e.preventDefault(); snakeSetDir(0, 1);
+        } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+          e.preventDefault(); snakeSetDir(-1, 0);
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+          e.preventDefault(); snakeSetDir(1, 0);
+        }
+      }
+    });
+
+    // Botones virtuales de Tetris
+    document.getElementById('btnTetrisLeft').addEventListener('pointerdown', (e) => { e.preventDefault(); tetrisMove(-1); });
+    document.getElementById('btnTetrisRight').addEventListener('pointerdown', (e) => { e.preventDefault(); tetrisMove(1); });
+    document.getElementById('btnTetrisDown').addEventListener('pointerdown', (e) => { e.preventDefault(); tetrisSoftDrop(); });
+    document.getElementById('btnTetrisRotate').addEventListener('pointerdown', (e) => { e.preventDefault(); tetrisRotate(); });
+    document.getElementById('btnTetrisHardDrop').addEventListener('pointerdown', (e) => { e.preventDefault(); tetrisHardDrop(); });
+    document.getElementById('btnTetrisHold').addEventListener('pointerdown', (e) => { e.preventDefault(); tetrisHoldAction(); });
+
+    // Botones virtuales Direccionales (Pacman y Snake)
+    document.getElementById('btnDirUp').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (currentGame === 'pacman') pacmanSetDir(0, -1);
+      else if (currentGame === 'snake') snakeSetDir(0, -1);
+    });
+    document.getElementById('btnDirDown').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (currentGame === 'pacman') pacmanSetDir(0, 1);
+      else if (currentGame === 'snake') snakeSetDir(0, 1);
+    });
+    document.getElementById('btnDirLeft').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (currentGame === 'pacman') pacmanSetDir(-1, 0);
+      else if (currentGame === 'snake') snakeSetDir(-1, 0);
+    });
+    document.getElementById('btnDirRight').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (currentGame === 'pacman') pacmanSetDir(1, 0);
+      else if (currentGame === 'snake') snakeSetDir(1, 0);
+    });
+    document.getElementById('btnDirReset').addEventListener('click', () => {
+      sound.btnClick();
+      if (currentGame === 'pacman') startPacman();
+      else if (currentGame === 'snake') startSnake();
+    });
+
+    // Soporte táctil por Deslizamiento (Swipe) en la pantalla
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    gameCanvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+
+    gameCanvas.addEventListener('touchend', (e) => {
+      if (!currentGame) return;
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const diffX = touchEndX - touchStartX;
+      const diffY = touchEndY - touchStartY;
+      const minSwipe = 24;
+
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (Math.abs(diffX) > minSwipe) {
+          const dir = diffX > 0 ? 1 : -1;
+          if (currentGame === 'tetris') tetrisMove(dir);
+          else if (currentGame === 'pacman') pacmanSetDir(dir, 0);
+          else if (currentGame === 'snake') snakeSetDir(dir, 0);
+        }
+      } else {
+        if (Math.abs(diffY) > minSwipe) {
+          const dir = diffY > 0 ? 1 : -1;
+          if (currentGame === 'tetris') {
+            if (dir === 1) tetrisSoftDrop();
+            else tetrisRotate();
+          } else if (currentGame === 'pacman') {
+            pacmanSetDir(0, dir);
+          } else if (currentGame === 'snake') {
+            snakeSetDir(0, dir);
+          }
+        }
+      }
+    }, { passive: true });
+
+  </script>
+</body>
+</html>
