@@ -5,7 +5,325 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Retro Arcade 3-en-1 | Tetris, Pac-Man, Viborita</title>
   <!-- Google Fonts & Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com">
+
+    /* ==========================================================
+       7. JUEGO 4: SPACE INVADERS
+       ========================================================== */
+    let invPlayer = {x: 150, y: 300, w: 20, h: 10};
+    let invAliens = [];
+    let invBullets = [];
+    let invScore = 0;
+    let invadersLastTick = 0;
+    let invAlienDir = 1;
+
+    function startInvaders(resume = false) {
+      gameCanvas.width = 320;
+      gameCanvas.height = 340;
+      invScore = 0;
+      invPlayer = {x: 150, y: 300, w: 20, h: 10};
+      invAliens = [];
+      invBullets = [];
+      invAlienDir = 1;
+      
+      for(let r=0; r<4; r++) {
+        for(let c=0; c<8; c++) {
+          invAliens.push({x: 30 + c*30, y: 30 + r*30, w: 16, h: 12});
+        }
+      }
+      
+      updateInvadersUI();
+      invadersLastTick = performance.now();
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(invadersLoop);
+    }
+
+    function updateInvadersUI() {
+      document.getElementById('gameScoreVal').textContent = invScore;
+      document.getElementById('headerScoreVal').textContent = invScore;
+      document.getElementById('gameExtraInfo').textContent = "INVADERS";
+    }
+
+    function updateInvadersLogic(delta) {
+      if(isPaused) return;
+
+      // Player move
+      if (pacman.nextDirX !== 0) { // re-using directional inputs
+        invPlayer.x += pacman.nextDirX * 3;
+        if(invPlayer.x < 0) invPlayer.x = 0;
+        if(invPlayer.x > gameCanvas.width - invPlayer.w) invPlayer.x = gameCanvas.width - invPlayer.w;
+        pacman.nextDirX = 0;
+      }
+
+      // Bullets
+      for(let i = invBullets.length-1; i>=0; i--) {
+        invBullets[i].y -= 4;
+        if(invBullets[i].y < 0) {
+          invBullets.splice(i, 1);
+          continue;
+        }
+        
+        // collision
+        for(let j = invAliens.length-1; j>=0; j--) {
+          let a = invAliens[j];
+          let b = invBullets[i];
+          if(b && b.x > a.x && b.x < a.x + a.w && b.y > a.y && b.y < a.y + a.h) {
+            invAliens.splice(j, 1);
+            invBullets.splice(i, 1);
+            invScore += 10;
+            sound.tetrisClear(); // beep
+            updateInvadersUI();
+            break;
+          }
+        }
+      }
+
+      // Aliens
+      let moveDown = false;
+      invAliens.forEach(a => {
+        a.x += invAlienDir * 0.5;
+        if(a.x > gameCanvas.width - a.w || a.x < 0) moveDown = true;
+      });
+      if(moveDown) {
+        invAlienDir *= -1;
+        invAliens.forEach(a => {
+          a.y += 15;
+          if(a.y > invPlayer.y - a.h) {
+             showGameOver(invScore);
+          }
+        });
+      }
+      
+      if(invAliens.length === 0) {
+        // next level
+        startInvaders();
+      }
+    }
+
+    function drawInvaders() {
+      ctx.fillStyle = '#04050d';
+      ctx.fillRect(0,0,gameCanvas.width, gameCanvas.height);
+      
+      ctx.fillStyle = '#00ff66';
+      ctx.fillRect(invPlayer.x, invPlayer.y, invPlayer.w, invPlayer.h);
+      ctx.fillRect(invPlayer.x + 8, invPlayer.y - 4, 4, 4); // turret
+      
+      ctx.fillStyle = '#ff0055';
+      invBullets.forEach(b => {
+        ctx.fillRect(b.x, b.y, 2, 6);
+      });
+      
+      ctx.fillStyle = '#00f3ff';
+      invAliens.forEach(a => {
+        ctx.fillRect(a.x, a.y, a.w, a.h);
+      });
+    }
+
+    function invadersLoop(time = 0) {
+      if(currentGame !== 'invaders') return;
+      let delta = time - invadersLastTick;
+      if(delta >= 16) {
+        invadersLastTick = time;
+        updateInvadersLogic(delta);
+      }
+      drawInvaders();
+      animFrameId = requestAnimationFrame(invadersLoop);
+    }
+    
+    // Shoot binding
+    window.addEventListener('keydown', e => {
+      if(currentGame === 'invaders' && (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w')) {
+        if(invBullets.length < 3) {
+          invBullets.push({x: invPlayer.x + 9, y: invPlayer.y - 4});
+          sound.pacDot();
+        }
+      }
+    });
+
+    /* ==========================================================
+       8. JUEGO 5: ASTEROIDS
+       ========================================================== */
+    let astShip = {x: 160, y: 160, a: 0, vx: 0, vy: 0};
+    let astRocks = [];
+    let astBullets = [];
+    let astScore = 0;
+    let asteroidsLastTick = 0;
+
+    function startAsteroids(resume = false) {
+      gameCanvas.width = 320;
+      gameCanvas.height = 320;
+      astScore = 0;
+      astShip = {x: 160, y: 160, a: -Math.PI/2, vx: 0, vy: 0};
+      astRocks = [];
+      astBullets = [];
+      
+      for(let i=0; i<4; i++) {
+        astRocks.push({
+          x: Math.random() * 320,
+          y: Math.random() * 320,
+          vx: (Math.random()-0.5)*2,
+          vy: (Math.random()-0.5)*2,
+          s: 20 // size
+        });
+      }
+      updateAsteroidsUI();
+      asteroidsLastTick = performance.now();
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(asteroidsLoop);
+    }
+
+    function updateAsteroidsUI() {
+      document.getElementById('gameScoreVal').textContent = astScore;
+      document.getElementById('headerScoreVal').textContent = astScore;
+      document.getElementById('gameExtraInfo').textContent = "ASTEROIDS";
+    }
+
+    function updateAsteroidsLogic(delta) {
+      if(isPaused) return;
+
+      // Wrap ship
+      astShip.x += astShip.vx;
+      astShip.y += astShip.vy;
+      if(astShip.x < 0) astShip.x = 320; if(astShip.x > 320) astShip.x = 0;
+      if(astShip.y < 0) astShip.y = 320; if(astShip.y > 320) astShip.y = 0;
+      
+      // friction
+      astShip.vx *= 0.99;
+      astShip.vy *= 0.99;
+
+      // Rot and thrust from pacman dir buffer
+      if (pacman.nextDirX === -1) astShip.a -= 0.1;
+      if (pacman.nextDirX === 1) astShip.a += 0.1;
+      if (pacman.nextDirY === -1) {
+        astShip.vx += Math.cos(astShip.a) * 0.2;
+        astShip.vy += Math.sin(astShip.a) * 0.2;
+      }
+      pacman.nextDirX = 0;
+      pacman.nextDirY = 0;
+
+      // Bullets
+      for(let i = astBullets.length-1; i>=0; i--) {
+        let b = astBullets[i];
+        b.x += b.vx;
+        b.y += b.vy;
+        b.life--;
+        if(b.life <= 0 || b.x < 0 || b.x > 320 || b.y < 0 || b.y > 320) {
+          astBullets.splice(i, 1);
+          continue;
+        }
+        
+        // collision
+        for(let j = astRocks.length-1; j>=0; j--) {
+          let r = astRocks[j];
+          let dist = Math.hypot(b.x - r.x, b.y - r.y);
+          if(dist < r.s) {
+            astRocks.splice(j, 1);
+            astBullets.splice(i, 1);
+            astScore += 20;
+            sound.tetrisClear();
+            updateAsteroidsUI();
+            
+            if(r.s > 10) {
+              astRocks.push({x: r.x, y: r.y, vx: r.vx + Math.random(), vy: r.vy + Math.random(), s: r.s / 2});
+              astRocks.push({x: r.x, y: r.y, vx: r.vx - Math.random(), vy: r.vy - Math.random(), s: r.s / 2});
+            }
+            break;
+          }
+        }
+      }
+
+      // Rocks
+      astRocks.forEach(r => {
+        r.x += r.vx;
+        r.y += r.vy;
+        if(r.x < 0) r.x = 320; if(r.x > 320) r.x = 0;
+        if(r.y < 0) r.y = 320; if(r.y > 320) r.y = 0;
+        
+        // ship collision
+        let dist = Math.hypot(astShip.x - r.x, astShip.y - r.y);
+        if(dist < r.s + 5) {
+          showGameOver(astScore);
+        }
+      });
+      
+      if(astRocks.length === 0) {
+        startAsteroids();
+      }
+    }
+
+    function drawAsteroids() {
+      ctx.fillStyle = '#04050d';
+      ctx.fillRect(0,0,gameCanvas.width, gameCanvas.height);
+      
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      
+      // Ship
+      ctx.save();
+      ctx.translate(astShip.x, astShip.y);
+      ctx.rotate(astShip.a);
+      ctx.beginPath();
+      ctx.moveTo(10, 0);
+      ctx.lineTo(-10, 7);
+      ctx.lineTo(-5, 0);
+      ctx.lineTo(-10, -7);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+      
+      // Bullets
+      ctx.fillStyle = '#ffe600';
+      astBullets.forEach(b => {
+        ctx.fillRect(b.x, b.y, 2, 2);
+      });
+      
+      // Rocks
+      ctx.strokeStyle = '#00f3ff';
+      astRocks.forEach(r => {
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.s, 0, Math.PI*2);
+        ctx.stroke();
+      });
+    }
+
+    function asteroidsLoop(time = 0) {
+      if(currentGame !== 'asteroids') return;
+      let delta = time - asteroidsLastTick;
+      if(delta >= 16) {
+        asteroidsLastTick = time;
+        updateAsteroidsLogic(delta);
+      }
+      drawAsteroids();
+      animFrameId = requestAnimationFrame(asteroidsLoop);
+    }
+    
+    // Shoot binding
+    window.addEventListener('keydown', e => {
+      if(currentGame === 'asteroids' && (e.key === ' ' || e.key === 'c')) {
+        if(astBullets.length < 5) {
+          astBullets.push({
+             x: astShip.x + Math.cos(astShip.a)*10, 
+             y: astShip.y + Math.sin(astShip.a)*10,
+             vx: Math.cos(astShip.a)*5,
+             vy: Math.sin(astShip.a)*5,
+             life: 60
+          });
+          sound.pacDot();
+        }
+      }
+    });
+
+
+
+    document.getElementById('btnDirReset').addEventListener('pointerdown', (e) => {
+      if (currentGame === 'invaders') {
+        if(invBullets.length < 3) { invBullets.push({x: invPlayer.x + 9, y: invPlayer.y - 4}); sound.pacDot(); }
+      } else if (currentGame === 'asteroids') {
+        if(astBullets.length < 5) { astBullets.push({x: astShip.x + Math.cos(astShip.a)*10, y: astShip.y + Math.sin(astShip.a)*10, vx: Math.cos(astShip.a)*5, vy: Math.sin(astShip.a)*5, life: 60}); sound.pacDot(); }
+      }
+    });
+
+</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -179,12 +497,12 @@
   </header>
 
   <!-- CONTENEDOR PRINCIPAL DINÁMICO -->
-  <main class="flex-1 w-full max-w-5xl mx-auto p-3 sm:p-5 flex flex-col items-center justify-center">
+  <main class="flex-1 w-full max-w-5xl mx-auto p-3 sm:p-5 flex flex-col items-center overflow-y-auto overflow-x-hidden relative">
 
     <!-- ========================================== -->
     <!-- PANTALLA 1: HUB / SELECTOR DE JUEGOS       -->
     <!-- ========================================== -->
-    <section id="viewMenu" class="w-full max-w-4xl flex flex-col items-center py-4">
+    <section id="viewMenu" class="w-full max-w-4xl flex flex-col items-center py-4 my-auto">
       
       <!-- HERO BANNER -->
       <div class="text-center mb-8">
@@ -200,7 +518,7 @@
       </div>
 
       <!-- TARJETAS DE LOS 3 JUEGOS -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 w-full">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 w-full">
         
         <!-- TARJETA 1: TETRIS -->
         <div class="group relative rounded-2xl bg-gradient-to-b from-[#131533] to-[#0c0e22] border border-cyan-500/30 p-5 flex flex-col justify-between hover:border-cyan-400 transition-all duration-300 hover:shadow-[0_0_25px_rgba(0,243,255,0.25)]">
@@ -232,8 +550,8 @@
             </p>
           </div>
 
-          <button onclick="launchGame('tetris')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-cyan-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
-            <span>JUGAR TETRIS</span>
+          <button id="btnPlayTetris" onclick="launchGame('tetris')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-cyan-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span id="txtPlayTetris">JUGAR TETRIS</span>
             <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </div>
@@ -273,8 +591,8 @@
             </p>
           </div>
 
-          <button onclick="launchGame('pacman')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-yellow-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
-            <span>JUGAR PAC-MAN</span>
+          <button id="btnPlayPacman" onclick="launchGame('pacman')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-300 hover:to-amber-400 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-yellow-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span id="txtPlayPacman">JUGAR PAC-MAN</span>
             <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </div>
@@ -310,8 +628,57 @@
             </p>
           </div>
 
-          <button onclick="launchGame('snake')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-green-400 to-emerald-600 hover:from-green-300 hover:to-emerald-500 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-green-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
-            <span>JUGAR VIBORITA</span>
+          <button id="btnPlaySnake" onclick="launchGame('snake')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-green-400 to-emerald-600 hover:from-green-300 hover:to-emerald-500 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-green-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span id="txtPlaySnake">JUGAR VIBORITA</span>
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+
+      
+        <!-- TARJETA 4: SPACE INVADERS -->
+        <div class="group relative rounded-2xl bg-gradient-to-b from-[#131533] to-[#0c0e22] border border-blue-500/30 p-5 flex flex-col justify-between hover:border-blue-400 transition-all duration-300 hover:shadow-[0_0_25px_rgba(0,100,255,0.25)]">
+          <div class="absolute -top-3 right-4 px-2 py-0.5 rounded bg-blue-500 text-black font-arcade text-[9px] font-bold">
+            CLASSIC
+          </div>
+          <div>
+            <div class="w-full h-32 rounded-xl bg-[#090b1c] border border-blue-900/60 flex items-center justify-center relative overflow-hidden mb-4">
+              <div class="grid grid-cols-5 gap-1 p-2">
+                <div class="w-4 h-4 rounded-sm bg-blue-400"></div><div class="w-4 h-4 rounded-sm bg-blue-400"></div><div class="w-4 h-4 rounded-sm bg-blue-400"></div><div class="w-4 h-4 rounded-sm bg-blue-400"></div><div class="w-4 h-4 rounded-sm bg-blue-400"></div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-arcade text-sm text-blue-300">SPACE INVADERS</h3>
+              <span class="text-xs text-yellow-400 font-arcade">🏆 <span id="menuInvadersHi">0</span></span>
+            </div>
+            <p class="text-gray-400 text-xs leading-relaxed mb-4">
+              Defiende la Tierra destruyendo oleadas de alienígenas que descienden poco a poco.
+            </p>
+          </div>
+          <button id="btnPlayInvaders" onclick="launchGame('invaders')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-black font-arcade text-xs font-bold tracking-wider shadow-lg shadow-blue-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span id="txtPlayInvaders">JUGAR INVADERS</span>
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+        </div>
+
+        <!-- TARJETA 5: ASTEROIDS -->
+        <div class="group relative rounded-2xl bg-gradient-to-b from-[#131533] to-[#0c0e22] border border-gray-500/30 p-5 flex flex-col justify-between hover:border-gray-400 transition-all duration-300 hover:shadow-[0_0_25px_rgba(150,150,150,0.25)]">
+          <div class="absolute -top-3 right-4 px-2 py-0.5 rounded bg-gray-400 text-black font-arcade text-[9px] font-bold">
+            VECTOR
+          </div>
+          <div>
+            <div class="w-full h-32 rounded-xl bg-[#090b1c] border border-gray-700/60 flex items-center justify-center relative overflow-hidden mb-4">
+              <div class="w-8 h-8 border-2 border-white rotate-45"></div>
+            </div>
+            <div class="flex items-center justify-between mb-1">
+              <h3 class="font-arcade text-sm text-gray-300">ASTEROIDS</h3>
+              <span class="text-xs text-yellow-400 font-arcade">🏆 <span id="menuAsteroidsHi">0</span></span>
+            </div>
+            <p class="text-gray-400 text-xs leading-relaxed mb-4">
+              Controlas una nave espacial para destruir asteroides en el espacio.
+            </p>
+          </div>
+          <button id="btnPlayAsteroids" onclick="launchGame('asteroids')" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-gray-500 to-slate-700 hover:from-gray-400 hover:to-slate-600 text-white font-arcade text-xs font-bold tracking-wider shadow-lg shadow-gray-500/30 active:scale-95 transition-all flex items-center justify-center gap-2">
+            <span id="txtPlayAsteroids">JUGAR ASTEROIDS</span>
             <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </div>
@@ -327,7 +694,7 @@
     <!-- ========================================== -->
     <!-- PANTALLA 2: CONTENEDOR DE JUEGO ACTIVO     -->
     <!-- ========================================== -->
-    <section id="viewGame" class="hidden w-full flex flex-col items-center">
+    <section id="viewGame" class="hidden w-full flex flex-col items-center my-auto">
       
       <!-- SUB-BARRA DE ESTADO DEL JUEGO -->
       <div class="w-full max-w-md flex items-center justify-between px-2 mb-2 font-arcade text-[10px]">
@@ -355,6 +722,9 @@
             <div class="flex flex-col gap-2 w-48">
               <button id="btnOverlayRestart" class="w-full py-2.5 px-4 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-arcade text-xs font-bold transition-all shadow-md">
                 REINTENTAR
+              </button>
+              <button id="btnOverlaySaveExit" class="hidden w-full py-2.5 px-4 rounded-lg bg-green-600 hover:bg-green-500 text-white font-arcade text-[10px] transition-all shadow-md">
+                GUARDAR Y SALIR
               </button>
               <button id="btnOverlayMenu" class="w-full py-2.5 px-4 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 font-arcade text-xs transition-all">
                 VOLVER AL MENÚ
@@ -593,7 +963,7 @@
        2. GESTOR DE ESTADO GLOBAL Y NAVEGACIÓN
        ========================================================== */
     const HIGH_SCORES_KEY = 'arcade_3in1_highscores';
-    let highScores = { tetris: 0, pacman: 0, snake: 0 };
+    let highScores = { tetris: 0, pacman: 0, snake: 0, invaders: 0, asteroids: 0 };
     try {
       const saved = localStorage.getItem(HIGH_SCORES_KEY);
       if (saved) highScores = Object.assign(highScores, JSON.parse(saved));
@@ -611,8 +981,120 @@
       document.getElementById('menuTetrisHi').textContent = highScores.tetris;
       document.getElementById('menuPacmanHi').textContent = highScores.pacman;
       document.getElementById('menuSnakeHi').textContent = highScores.snake;
+      document.getElementById('menuInvadersHi').textContent = highScores.invaders || 0;
+      document.getElementById('menuAsteroidsHi').textContent = highScores.asteroids || 0;
     }
     updateScoresUI();
+
+    function saveGameState() {
+      if (!currentGame) return;
+      const state = {};
+      if (currentGame === 'tetris') {
+        state.tetrisBoard = tetrisBoard;
+        state.tetrisPiece = tetrisPiece;
+        state.tetrisNext = tetrisNext;
+        state.tetrisHold = tetrisHold;
+        state.tetrisCanHold = tetrisCanHold;
+        state.tetrisScore = tetrisScore;
+        state.tetrisLines = tetrisLines;
+        state.tetrisLevel = tetrisLevel;
+      } else if (currentGame === 'pacman') {
+        state.pacMaze = pacMaze;
+        state.pacman = pacman;
+        state.ghosts = ghosts;
+        state.pacScore = pacScore;
+        state.pacLives = pacLives;
+        state.pacFrightenedTimer = pacFrightenedTimer;
+        state.pacTotalPellets = pacTotalPellets;
+        state.pacFrightenedScoreMult = pacFrightenedScoreMult || 1;
+      } else if (currentGame === 'invaders') {
+        state.invPlayer = invPlayer;
+        state.invAliens = invAliens;
+        state.invBullets = invBullets;
+        state.invScore = invScore;
+      } else if (currentGame === 'asteroids') {
+        state.astShip = astShip;
+        state.astRocks = astRocks;
+        state.astBullets = astBullets;
+        state.astScore = astScore;
+      } else if (currentGame === 'snake') {
+        state.snake = snake;
+        state.snakeDir = snakeDir;
+        state.snakeNextDir = snakeNextDir;
+        state.snakeFood = snakeFood;
+        state.snakeBonusFood = snakeBonusFood;
+        state.snakeBonusTimer = snakeBonusTimer;
+        state.snakeScore = snakeScore;
+        state.snakeSpeed = snakeSpeed;
+      }
+      try { localStorage.setItem('arcade_save_' + currentGame, JSON.stringify(state)); } catch(e) {}
+      checkSavedGames();
+    }
+
+    function clearGameState(name) {
+      try { localStorage.removeItem('arcade_save_' + name); } catch(e) {}
+      checkSavedGames();
+    }
+
+    function loadGameState(name) {
+      try {
+        const saved = localStorage.getItem('arcade_save_' + name);
+        if (!saved) return false;
+        const state = JSON.parse(saved);
+        if (name === 'tetris') {
+          tetrisBoard = state.tetrisBoard;
+          tetrisPiece = state.tetrisPiece;
+          tetrisNext = state.tetrisNext;
+          tetrisHold = state.tetrisHold;
+          tetrisCanHold = state.tetrisCanHold;
+          tetrisScore = state.tetrisScore;
+          tetrisLines = state.tetrisLines;
+          tetrisLevel = state.tetrisLevel;
+        } else if (name === 'pacman') {
+          pacMaze = state.pacMaze;
+          pacman = state.pacman;
+          ghosts = state.ghosts;
+          pacScore = state.pacScore;
+          pacLives = state.pacLives;
+          pacFrightenedTimer = state.pacFrightenedTimer;
+          pacTotalPellets = state.pacTotalPellets;
+          if (state.pacFrightenedScoreMult) pacFrightenedScoreMult = state.pacFrightenedScoreMult;
+        } else if (name === 'invaders') {
+          invPlayer = state.invPlayer;
+          invAliens = state.invAliens;
+          invBullets = state.invBullets;
+          invScore = state.invScore;
+        } else if (name === 'asteroids') {
+          astShip = state.astShip;
+          astRocks = state.astRocks;
+          astBullets = state.astBullets;
+          astScore = state.astScore;
+        } else if (name === 'snake') {
+          snake = state.snake;
+          snakeDir = state.snakeDir;
+          snakeNextDir = state.snakeNextDir;
+          snakeFood = state.snakeFood;
+          snakeBonusFood = state.snakeBonusFood;
+          snakeBonusTimer = state.snakeBonusTimer;
+          snakeScore = state.snakeScore;
+          snakeSpeed = state.snakeSpeed;
+        }
+        return true;
+      } catch(e) { return false; }
+    }
+
+    function checkSavedGames() {
+      try {
+        if (localStorage.getItem('arcade_save_tetris')) document.getElementById('txtPlayTetris').textContent = 'CONTINUAR TETRIS';
+        else document.getElementById('txtPlayTetris').textContent = 'JUGAR TETRIS';
+        
+        if (localStorage.getItem('arcade_save_pacman')) document.getElementById('txtPlayPacman').textContent = 'CONTINUAR PAC-MAN';
+        else document.getElementById('txtPlayPacman').textContent = 'JUGAR PAC-MAN';
+        
+        if (localStorage.getItem('arcade_save_snake')) document.getElementById('txtPlaySnake').textContent = 'CONTINUAR VIBORITA';
+        else document.getElementById('txtPlaySnake').textContent = 'JUGAR VIBORITA';
+      } catch(e) {}
+    }
 
     let currentGame = null; // 'tetris' | 'pacman' | 'snake' | null
     let isPaused = false;
@@ -686,7 +1168,7 @@
       isPaused = false;
 
       // Adaptar interfaz
-      const titleMap = { tetris: 'TETRIS PRO', pacman: 'PAC-MAN', snake: 'LA VIBORITA' };
+      const titleMap = { tetris: 'TETRIS PRO', pacman: 'PAC-MAN', snake: 'LA VIBORITA', invaders: 'SPACE INVADERS', asteroids: 'ASTEROIDS' };
       appHeaderTitle.textContent = titleMap[name] || 'ARCADE';
       document.getElementById('gameCurrentTitle').textContent = titleMap[name];
       document.getElementById('gameHiScoreVal').textContent = highScores[name] || 0;
@@ -696,9 +1178,18 @@
       controlsTetris.classList.toggle('hidden', name !== 'tetris');
       controlsDirectional.classList.toggle('hidden', name === 'tetris');
 
-      if (name === 'tetris') startTetris();
-      else if (name === 'pacman') startPacman();
-      else if (name === 'snake') startSnake();
+      if (name === 'tetris') startTetris(true);
+      else if (name === 'pacman') startPacman(true);
+      else if (name === 'snake') startSnake(true);
+      else if (name === 'invaders') {
+        if (!loadGameState('invaders')) startInvaders();
+        else { animFrameId = requestAnimationFrame(invadersLoop); updateInvadersUI(); invadersLastTick = performance.now(); }
+      }
+      else if (name === 'asteroids') {
+        if (!loadGameState('asteroids')) startAsteroids();
+        else { animFrameId = requestAnimationFrame(asteroidsLoop); updateAsteroidsUI(); asteroidsLastTick = performance.now(); }
+      }
+
     }
 
     function showGameOver(finalScore) {
@@ -714,11 +1205,20 @@
     btnOverlayRestart.addEventListener('click', () => {
       sound.btnClick();
       gameOverlay.classList.add('hidden');
-      if (currentGame === 'tetris') startTetris();
-      else if (currentGame === 'pacman') startPacman();
-      else if (currentGame === 'snake') startSnake();
+      if (currentGame === 'tetris') { clearGameState('tetris'); startTetris(); }
+      else if (currentGame === 'pacman') { clearGameState('pacman'); startPacman(); }
+      else if (currentGame === 'snake') { clearGameState('snake'); startSnake(); }
+      else if (currentGame === 'invaders') { clearGameState('invaders'); startInvaders(); }
+      else if (currentGame === 'asteroids') { clearGameState('asteroids'); startAsteroids(); }
+
     });
 
+    
+    document.getElementById('btnOverlaySaveExit').addEventListener('click', () => {
+      sound.btnClick();
+      saveGameState();
+      returnToMenu();
+    });
     btnOverlayMenu.addEventListener('click', () => {
       sound.btnClick();
       returnToMenu();
@@ -736,10 +1236,12 @@
         overlayTitle.className = "font-arcade text-lg sm:text-xl text-yellow-400 mb-2";
         overlaySubtitle.textContent = "Presiona Reanudar para continuar";
         btnOverlayRestart.textContent = "REANUDAR";
+        document.getElementById('btnOverlaySaveExit').classList.remove('hidden');
         gameOverlay.classList.remove('hidden');
       } else {
         gameOverlay.classList.add('hidden');
         btnOverlayRestart.textContent = "REINTENTAR";
+        document.getElementById('btnOverlaySaveExit').classList.add('hidden');
       }
     }
 
@@ -808,7 +1310,16 @@
       return false;
     }
 
-    function startTetris() {
+    function startTetris(resume = false) {
+      if(resume && loadGameState('tetris')) {
+        tetrisLastTime = performance.now();
+        updateTetrisUI();
+        drawTetrisMiniPreview(holdCtx, tetrisHold);
+        drawTetrisMiniPreview(nextCtx, tetrisNext);
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        animFrameId = requestAnimationFrame(tetrisLoop);
+        return;
+      }
       gameCanvas.width = 240;
       gameCanvas.height = 420;
       tetrisBoard = Array.from({ length: TETRIS_ROWS }, () => Array(TETRIS_COLS).fill(0));
@@ -1110,8 +1621,16 @@
     let pacTotalPellets = 0;
     let pacMoveCounter = 0;
     let ghostMoveCounter = 0;
+    let pacLastTick = 0;
 
-    function startPacman() {
+    function startPacman(resume = false) {
+      if(resume && loadGameState('pacman')) {
+        updatePacmanUI();
+        pacLastTick = performance.now();
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        animFrameId = requestAnimationFrame(pacmanLoop);
+        return;
+      }
       gameCanvas.width = 304; // 19 * 16
       gameCanvas.height = 336; // 21 * 16
 
@@ -1125,6 +1644,7 @@
       resetPacmanEntities();
       updatePacmanUI();
 
+      pacLastTick = performance.now();
       if (animFrameId) cancelAnimationFrame(animFrameId);
       animFrameId = requestAnimationFrame(pacmanLoop);
     }
@@ -1439,9 +1959,13 @@
       });
     }
 
-    function pacmanLoop() {
+    function pacmanLoop(time = 0) {
       if (currentGame !== 'pacman') return;
-      updatePacmanLogic();
+      const delta = time - pacLastTick;
+      if (delta >= 16) {
+        pacLastTick = time;
+        updatePacmanLogic();
+      }
       drawPacmanGame();
       animFrameId = requestAnimationFrame(pacmanLoop);
     }
@@ -1461,7 +1985,14 @@
     let snakeSpeed = 120;
     let snakeLastTick = 0;
 
-    function startSnake() {
+    function startSnake(resume = false) {
+      if(resume && loadGameState('snake')) {
+        updateSnakeUI();
+        snakeLastTick = performance.now();
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        animFrameId = requestAnimationFrame(snakeLoop);
+        return;
+      }
       gameCanvas.width = 320;
       gameCanvas.height = 320;
 
